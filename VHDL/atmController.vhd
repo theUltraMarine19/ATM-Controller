@@ -67,6 +67,7 @@ end atmController;
 architecture Behavioral of atmController is
 
  	--Outputs
+
 signal timer_out : std_logic;
 signal ccount_t : unsigned (0 downto 0)	:= "0";
 signal count_t : unsigned (1 downto 0)	:= "00";
@@ -74,6 +75,8 @@ signal count_tt : unsigned (2 downto 0)	:= "000";
 signal count_ttt : unsigned (2 downto 0)	:= "000";
 signal comm_done_sig: std_logic := '0';
 signal comm_do_sig: std_logic := '0';
+signal denominate_do_sig : std_logic := '0';
+signal denominate_done_sig : std_logic := '0';
 signal fill_zero_sig: std_logic := '0';
 signal cash_state_sig: std_logic := '0';
 signal read_do_sig: std_logic := '0';
@@ -91,6 +94,16 @@ signal chan0data : std_logic_vector (7 downto 0) := (others => '0');
 signal cash_available : std_logic := '0';
 signal done_sig : std_logic := '0';
 signal count_cycles : unsigned(2 downto 0) := (others => '0');
+signal n2000d : integer := 0;
+signal n1000d : integer := 0;
+signal n500d : integer := 0;
+signal n100d : integer := 0;
+signal start_sig : std_logic := '0';
+signal denominate_state : unsigned(1 downto 0) := (others => '0');
+signal a_sig : std_logic_vector (31 downto 0) := (others => '0');
+signal b_sig : std_logic_vector (31 downto 0) := (others => '0');
+signal q_sig : std_logic_vector (31 downto 0) := (others => '0');
+signal div_done_sig : std_logic := '0';
 begin
    uut: entity work.Timer 
 				PORT MAP (
@@ -99,6 +112,16 @@ begin
           output => timer_out,
           clk => fx2Clk_in
         );
+	
+	div: entity work.Divider
+	PORT MAP (
+			start => start_sig,
+			a => a_sig,
+			b => b_sig,
+			q => q_sig,
+			clk => fx2Clk_in,
+			done => div_done_sig
+	);
 	
 	seq: entity work.sequencer
     Port map( 
@@ -109,6 +132,8 @@ begin
            encrypt_done => encrypt_done,
            decrypt_done => decrypt_done,
            read_done => read_done,
+			  denominate_done => denominate_done_sig,
+			  denominate_do => denominate_do_sig,
            comm_done => comm_done_sig,
            encrypt_do => encrypt_do_sig,
            decrypt_do => decrypt_do_sig,
@@ -166,6 +191,76 @@ begin
 					leds(0) <= '0';
 					count_t <= count_t - 1;
 				end if;
+			elsif (denominate_do_sig = '1') then
+				case denominate_state is
+				when "00" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "01";
+						n2000d <= to_integer(unsigned(q_sig(31 downto 0)));
+						if(n2000d > to_integer(n2000)) then
+							n2000d <= to_integer(n2000);
+						end if;
+					else
+						start_sig <= '1';
+						a_sig <= data_in (31 downto 0);
+						b_sig <= std_logic_vector(to_unsigned(2000,32));
+					end if;
+				when "01" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "10";
+						n1000d <= to_integer(unsigned(q_sig(31 downto 0)));
+						if(n1000d > to_integer(n1000)) then
+							n1000d <= to_integer(n1000);
+						end if;
+					else
+						start_sig <= '1';
+						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-n2000d*2000),32));
+						b_sig <= std_logic_vector(to_unsigned(1000,32));
+					end if;
+				when "10" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "11";
+						n500d <= to_integer(unsigned(q_sig(31 downto 0)));
+						if(n500d > to_integer(n500)) then
+							n500d <= to_integer(n500);
+						end if;
+					else
+						start_sig <= '1';
+						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000)),32));
+						b_sig <= std_logic_vector(to_unsigned(500,32));
+					end if;
+				when "11" =>
+					if(div_done_sig = '1') then
+						denominate_done_sig <= '1';
+						n100d <= to_integer(unsigned(q_sig(31 downto 0)));
+						if(n100d > to_integer(n100)) then
+							n100d <= to_integer(n100);
+						end if;
+					else
+						start_sig <= '1';
+						a_sig <= std_logic_vector(to_unsigned(to_integer(unsigned((data_in (31 downto 0)))-(n2000d*2000+n1000d*1000+n500d*500)),32));
+						b_sig <= std_logic_vector(to_unsigned(100,32));
+					end if;
+				when others =>
+					null;
+				end case;
+--				n2000d <= to_integer(unsigned(data_in(31 downto 0))) mod 2000;
+--				if(n2000d > to_integer(n2000)) then
+--					n2000d <= to_integer(n2000);
+--				end if;
+--				n1000d <= (to_integer(unsigned(data_in(31downto 0))) - n2000d * 2000 ) mod 1000;
+--				if(n1000d > to_integer(n1000)) then
+--					n1000d <= to_integer(n1000);
+--				end if;
+--				n500d <= (to_integer(unsigned(data_in(31 downto 0))) - (n2000d * 2000 + n1000d * 1000) ) mod 500;
+--				if(n500d > to_integer(n500)) then
+--					n500d <= to_integer(n500);
+--				end if;
+--				n100d <= (to_integer(unsigned(data_in(31 downto 0))) - (n2000d * 2000 + n1000d * 1000 + n500d *500) ) mod 100;
+--				if(n100d > to_integer(n100)) then
+--					n100d <= to_integer(n100);
+--				end if;
+--				denominate_done_sig <= '1';
 			elsif (encrypt_do_sig = '1' or comm_do_sig = '1' or decrypt_do_sig = '1') then
 				leds(7 downto 2) <= "000000";
 				if (timer_out = '1' and to_integer(count_t) = 0) then
@@ -178,7 +273,11 @@ begin
 					count_t <= count_t - 1;
 				end if;
 				if (encrypt_do_sig = '1') then
-					data_out <= data_in;
+					data_out(63 downto 32) <= data_in(63 downto 32);
+					data_out(31 downto 24) <= std_logic_vector (to_unsigned(n2000d,8));
+					data_out(23 downto 16) <= std_logic_vector (to_unsigned(n1000d,8));
+					data_out(15 downto 8) <= std_logic_vector (to_unsigned(n500d,8));
+					data_out(7 downto 0) <= std_logic_vector (to_unsigned(n100d,8));
 					if (count_cycles < 10) then
 						encrypt_do <= '1';
 						count_cycles <= count_cycles + 1;
@@ -190,15 +289,12 @@ begin
 					chan10to17data_reg <= chan10to17data;
 					case chan9data_reg is
 						when x"00" =>
-							if ((n2000 >= to_integer(unsigned(data_in(31 downto 24)))) and
-							(n1000 >= to_integer(unsigned(data_in(23 downto 16)))) and
-							(n500 >= to_integer(unsigned(data_in(15 downto 8)))) and
-							(n100 >= to_integer(unsigned(data_in(7 downto 0))))) then
-								chan0data <= x"01";
-								cash_available <= '1';
-							else
-								cash_available <= '0';
+							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
 								chan0data <= x"02";
+								cash_available <= '0';
+							else
+								cash_available <= '1';
+								chan0data <= x"01";
 							end if;
 							comm_done_sig <= '0';
 						when others =>

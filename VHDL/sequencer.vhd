@@ -38,6 +38,8 @@ entity sequencer is
            decrypt_done : in  STD_LOGIC;
            read_done : in  STD_LOGIC;
            comm_done : in  STD_LOGIC;
+			  denominate_done : in STD_LOGIC;
+			  denominate_do : out STD_LOGIC;
            encrypt_do : out  STD_LOGIC;
            decrypt_do : out  STD_LOGIC;
            read_do : out  STD_LOGIC;
@@ -66,31 +68,38 @@ begin
 					read_do <= '1';
 				else
 					read_do <= '0';
-					curr_state <= "0010"; -- encryption state
+					curr_state <= "0011"; -- encryption state
 				end if;
 			when "0010" =>
+				if (denominate_done = '0') then
+					denominate_do <= '1';
+				else
+					denominate_do <= '0';
+					curr_state <= "0011";
+				end if;
+			when "0011" =>
 				if (encrypt_done = '0') then
 					encrypt_do <= '1';
 				else
 					encrypt_do <= '0';
-					curr_state <= "0011"; -- communicating with backend state
+					curr_state <= "0100"; -- communicating with backend state
 				end if;
-			when "0011" =>
+			when "0100" =>
 				if (comm_done = '0') then
 					comm_do <= '1';
 				else
 					comm_do <= '0';
-					curr_state <= "0100"; -- decryption state					
+					curr_state <= "0101"; -- decryption state					
 				end if;
-			when "0100" =>
+			when "0101" =>
 				if (decrypt_done = '0') then
 					decrypt_do <= '1';
 				else
 					decrypt_do <= '0';
-					curr_state <= "0101"; -- cash state
+					curr_state <= "0111"; -- cash state
 					cash_state <= '1';	-- cash state to be handled by the atm controller
 				end if;
-			when "0101" =>
+			when "0111" =>
 				if (done = '1') then
 					cash_state <= '0';
 					curr_state <= (others => '0'); -- Ready state
