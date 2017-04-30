@@ -48,6 +48,7 @@ entity atmController is
            leds : out  STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
 			  reset : in  STD_LOGIC;
 			  start : in  STD_LOGIC;
+			  load_bank_id : in STD_LOGIC;
 			  done : in STD_LOGIC;
 			  encrypt_done : in std_logic;
 			  decrypt_done : in std_logic;
@@ -55,6 +56,9 @@ entity atmController is
 			  encrypt_do : out std_logic := '0';
 			  decrypt_do : out std_logic := '0';
 			  read_do : out std_logic := '0';
+			  data5_in : in STD_LOGIC_VECTOR (4 downto 0);
+			  data5_done : in std_logic;
+			  data5_do : out std_logic;
 			  data_in : in STD_LOGIC_VECTOR (63 downto 0);
 			  data_out : out STD_LOGIC_VECTOR (63 downto 0);
 			  enc_data : in STD_LOGIC_VECTOR (63 downto 0);
@@ -67,7 +71,7 @@ end atmController;
 architecture Behavioral of atmController is
 
  	--Outputs
-
+signal bank_id : std_logic_vector (4 downto 0) := "00000";
 signal timer_out : std_logic;
 signal ccount_t : unsigned (0 downto 0)	:= "0";
 signal count_t : unsigned (1 downto 0)	:= "00";
@@ -80,12 +84,14 @@ signal denominate_done_sig : std_logic := '0';
 signal fill_zero_sig: std_logic := '0';
 signal cash_state_sig: std_logic := '0';
 signal read_do_sig: std_logic := '0';
+signal read5_do_sig: std_logic := '0';
+signal data5_done_sig: std_logic := '0';
 signal encrypt_do_sig: std_logic := '0';
 signal decrypt_do_sig: std_logic := '0';
-signal n2000 : unsigned (num_bits-1 downto 0) := (others=>'0');
-signal n1000 : unsigned (num_bits-1 downto 0) := (others=>'0');
-signal n500 : unsigned (num_bits-1 downto 0)	:= (others=>'0');
-signal n100 : unsigned (num_bits-1 downto 0)	:= (others=>'0');
+signal n2000 : unsigned (num_bits-1 downto 0) := (others=>'1');
+signal n1000 : unsigned (num_bits-1 downto 0) := (others=>'1');
+signal n500 : unsigned (num_bits-1 downto 0)	:= (others=>'1');
+signal n100 : unsigned (num_bits-1 downto 0)	:= (others=>'1');
 signal chan9data : std_logic_vector (7 downto 0) := (others => '0');
 signal chan9data_reg : std_logic_vector (7 downto 0) := (others => '0');
 signal chan10to17data : std_logic_vector (63 downto 0) := (others => '0');
@@ -127,17 +133,20 @@ begin
     Port map( 
 			  clk => fx2Clk_in,
 			  done => done_sig,
+			  load_bank_id => load_bank_id,
            start => start,
            reset => reset,
            encrypt_done => encrypt_done,
            decrypt_done => decrypt_done,
            read_done => read_done,
+			  read5_done => data5_done_sig,
 			  denominate_done => denominate_done_sig,
 			  denominate_do => denominate_do_sig,
            comm_done => comm_done_sig,
            encrypt_do => encrypt_do_sig,
            decrypt_do => decrypt_do_sig,
            read_do => read_do_sig,
+			  read5_do => read5_do_sig,
            comm_do => comm_do_sig,
            fill_zero => fill_zero_sig,
            cash_state => cash_state_sig
@@ -147,6 +156,7 @@ begin
 	begin
 		if(reset = '1') then
 				done_sig <= '0';
+				data5_done_sig <= '0';
 				ccount_t <= (others=>'0');
 				count_t <= (others=>'0');
 				count_tt <= (others=>'0');
@@ -160,6 +170,7 @@ begin
 			if (done_sig = '1') then
 				leds <= "00000000";
 				done_sig <= '0';
+				data5_done_sig <= '0';
 				ccount_t <= (others=>'0');
 				count_t <= (others=>'0');
 				count_tt <= (others=>'0');
@@ -171,11 +182,20 @@ begin
 				count_cycles <= (others=>'0');
 			elsif (fill_zero_sig = '1') then
 				leds <= "00000000";
-				n2000 <= (others=>'0');
-				n1000 <= (others=>'0');
-				n500 <= (others=>'0');
-				n100 <= (others=>'0');
+				n2000 <= (others=>'1');
+				n1000 <= (others=>'1');
+				n500 <= (others=>'1');
+				n100 <= (others=>'1');
+			elsif (read5_do_sig = '1') then
+				if (data5_done = '1') then
+					data5_done_sig <= '1';
+					data5_do <= '0';
+					bank_id <= data5_in;
+				else
+					data5_do <= '1';
+				end if;
 			elsif (read_do_sig = '1') then
+				data5_done_sig <= '0';
 				if (count_cycles < 2) then
 					read_do <= '1';
 					count_cycles <= count_cycles + 1;
@@ -183,7 +203,7 @@ begin
 					read_do <= '0';
 				end if;
 				leds(3 downto 1) <= num_bytes(2 downto 0);
-				leds(7 downto 4) <= "0000";
+				leds(7 downto 4) <= bank_id(3 downto 0);
 				if (timer_out = '1' and to_integer(count_t) = 0) then
 					leds(0) <= '1';
 					count_t <= "01";
@@ -326,10 +346,10 @@ begin
 							count_t <= count_t - 1;
 						end if;
 					end if;
-					n2000 <= unsigned(dec_data(31 downto 24));
-					n1000 <= unsigned(dec_data(23 downto 16));
-					n500 <= unsigned(dec_data(15 downto 8));
-					n100 <= unsigned(dec_data(7 downto 0));
+					n2000 <= unsigned(data_in(31 downto 24));
+					n1000 <= unsigned(data_in(23 downto 16));
+					n500 <= unsigned(data_in(15 downto 8));
+					n100 <= unsigned(data_in(7 downto 0));
 					done_sig <= done;
 				else
 					if (timer_out = '1' and to_integer(ccount_t) = 0) then

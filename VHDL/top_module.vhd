@@ -41,6 +41,7 @@ entity top_module is
         led_out            : out  STD_LOGIC_VECTOR (7 downto 0);
         reset           : in  STD_LOGIC;
         start           : in  STD_LOGIC;
+		  load_bank_id		: in  STD_LOGIC;
         done            : in  STD_LOGIC;
         next_data_in    : in std_logic
     );
@@ -72,6 +73,7 @@ architecture Behavioral of top_module is
     signal read_done_sig            : std_logic; 
     -- Debounced Signals
     signal debounced_next_data_in	: STD_LOGIC;
+	 signal debounced_load_bank_id	: STD_LOGIC;
     signal debounced_done			: STD_LOGIC;
     signal debounced_start			: STD_LOGIC;
     signal debounced_reset			: STD_LOGIC;
@@ -83,7 +85,9 @@ architecture Behavioral of top_module is
     signal start_decrypt			: STD_LOGIC;
     signal encryption_over			: STD_LOGIC;
     signal decryption_over			: STD_LOGIC;
-    
+	 signal data5_start				: STD_LOGIC;
+	 signal data5_done_sig			: STD_LOGIC;
+	 signal data5_out					: STD_LOGIC_VECTOR (4 downto 0);
     begin
         -- CommFPGA module
         fx2Read_out     <= fx2Read;
@@ -145,6 +149,13 @@ architecture Behavioral of top_module is
             button_deb      => debounced_done
         );
 
+		  debouncer5: entity work.debouncer
+        port map (
+            clk             => fx2Clk_in,
+            button          => load_bank_id,
+            button_deb      => debounced_load_bank_id
+        );
+		  
         reader: entity work.read_multiple_data_bytes
         Port map( 
             clk 			=> fx2Clk_in,
@@ -177,7 +188,14 @@ architecture Behavioral of top_module is
             plaintext 		=> out_data_dec,
             done 			=> decryption_over
         );
-
+			read5: entity work.read5bits
+			    Port map (
+				 sliders => sw_in(4 downto 0),
+           data_out => data5_out,
+           start => data5_start,
+           done => data5_done_sig,
+			  clk => fx2Clk_in,
+			  reset => debounced_reset);
         atm_cont: entity work.atmController
         port map (
             -- DVR interface -> Connects to comm_fpga module
@@ -189,6 +207,7 @@ architecture Behavioral of top_module is
             f2hValid_out 	=> f2hValid,
             f2hReady_in  	=> f2hReady,
             leds 			=> led_out,
+				load_bank_id	=> debounced_load_bank_id,
             reset 			=> debounced_reset,
             start 			=> debounced_start,
             done  			=> debounced_done,
@@ -196,6 +215,9 @@ architecture Behavioral of top_module is
             num_bytes 		=> num_bytes_sig,
             read_done 		=> read_done_sig,
             read_do			=>	start_read,
+				data5_done 		=> data5_done_sig,
+            data5_do			=>	data5_start,
+				data5_in			=> data5_out,
             data_out		=> in_data,
             enc_data		=>	out_data_enc,
             dec_data		=>	out_data_dec,

@@ -34,15 +34,18 @@ entity sequencer is
 			  done : in  STD_LOGIC;
            start : in  STD_LOGIC;
            reset : in  STD_LOGIC;
+			  load_bank_id : in STD_LOGIC;
            encrypt_done : in  STD_LOGIC;
            decrypt_done : in  STD_LOGIC;
            read_done : in  STD_LOGIC;
+           read5_done : in  STD_LOGIC;
            comm_done : in  STD_LOGIC;
 			  denominate_done : in STD_LOGIC;
 			  denominate_do : out STD_LOGIC;
            encrypt_do : out  STD_LOGIC;
            decrypt_do : out  STD_LOGIC;
            read_do : out  STD_LOGIC;
+			  read5_do : out  STD_LOGIC;
            comm_do : out  STD_LOGIC;
            fill_zero : out  STD_LOGIC;
            cash_state : out  STD_LOGIC);
@@ -59,9 +62,18 @@ begin
 	elsif (rising_edge(clk)) then
 			case curr_state is
 			when "0000" =>
-				if (start = '1') then
+				if (load_bank_id = '1') then
+					curr_state <= "1000";
+				elsif (start = '1') then
 					fill_zero <= '0';
 					curr_state <= "0001"; -- Get user input state
+				end if;
+			when "1000" =>
+				if (read5_done = '0') then
+					read5_do <= '1';
+				else
+					read5_do <= '0';
+					curr_state <= "0000"; -- Ready st
 				end if;
 			when "0001" =>
 				if (read_done = '0') then
