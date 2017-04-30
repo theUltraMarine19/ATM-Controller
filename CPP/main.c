@@ -52,7 +52,13 @@ void decrypt (uint32_t* v, uint32_t* k) {
     v[0]=v0; v[1]=v1;
 }
 
+uint32_t bankId;
+
 uint8 updateCSV(uint32_t id,uint16_t pin,long int cash_req,uint8 temp, uint32_t n1000){
+    uint32_t bID = id & 31;
+    if(bID != bankId){
+        return 0x05;
+    }
 
     pin=(pin << 11)|(pin >> 5);
     
@@ -164,6 +170,11 @@ int main(void){
 
     fStatus = flInitialise(0, &error);
     CHECK_STATUS(fStatus, FLP_LIBERR, cleanup);
+
+    printf("Enter Bank ID...\n");
+
+    scanf("%d",&bankID);
+    bankID = bankID; //Assuming input is a 5 bit integer
 
     printf("Executing flOpen\n");
     //establishing laptop and board interface
