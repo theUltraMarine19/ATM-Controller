@@ -80,7 +80,7 @@ begin
 					read_do <= '1';
 				else
 					read_do <= '0';
-					curr_state <= "0011"; -- encryption state
+					curr_state <= "0010"; -- encryption state
 				end if;
 			when "0010" =>
 				if (denominate_done = '0') then

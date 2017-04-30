@@ -61,6 +61,7 @@ begin
 		if (start = '1' and started /= true and done1 /= '1') then
 			started <= true;
 			res <= a;
+			q_sig <= (others => '0');
 		end if;	
 		
 		if (started) then			
@@ -75,6 +76,7 @@ begin
 			end if;
 		else
 			done <= '0'; 
+			done1 <= '0';
 		end if;
 		
 	end if;

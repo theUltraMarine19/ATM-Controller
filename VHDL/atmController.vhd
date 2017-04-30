@@ -88,10 +88,10 @@ signal read5_do_sig: std_logic := '0';
 signal data5_done_sig: std_logic := '0';
 signal encrypt_do_sig: std_logic := '0';
 signal decrypt_do_sig: std_logic := '0';
-signal n2000 : unsigned (num_bits-1 downto 0) := (others=>'1');
-signal n1000 : unsigned (num_bits-1 downto 0) := (others=>'1');
-signal n500 : unsigned (num_bits-1 downto 0)	:= (others=>'1');
-signal n100 : unsigned (num_bits-1 downto 0)	:= (others=>'1');
+signal n2000 : unsigned (num_bits-1 downto 0) := (others=>'0');
+signal n1000 : unsigned (num_bits-1 downto 0) := (others=>'0');
+signal n500 : unsigned (num_bits-1 downto 0)	:= (others=>'0');
+signal n100 : unsigned (num_bits-1 downto 0)	:= (others=>'0');
 signal chan9data : std_logic_vector (7 downto 0) := (others => '0');
 signal chan9data_reg : std_logic_vector (7 downto 0) := (others => '0');
 signal chan10to17data : std_logic_vector (63 downto 0) := (others => '0');
@@ -156,10 +156,13 @@ begin
 	begin
 		if(reset = '1') then
 				done_sig <= '0';
+				start_sig <= '0';
 				data5_done_sig <= '0';
 				ccount_t <= (others=>'0');
 				count_t <= (others=>'0');
 				count_tt <= (others=>'0');
+				denominate_done_sig <= '0';
+				denominate_state <= "00";
 				count_ttt <= (others=>'0');
 				comm_done_sig <= '0';
 				chan0data <= x"00";
@@ -171,6 +174,9 @@ begin
 				leds <= "00000000";
 				done_sig <= '0';
 				data5_done_sig <= '0';
+				start_sig <= '0';
+				denominate_state <= "00";
+				denominate_done_sig <= '0';
 				ccount_t <= (others=>'0');
 				count_t <= (others=>'0');
 				count_tt <= (others=>'0');
@@ -180,12 +186,6 @@ begin
 				chan9data_reg <= (others=>'0');
 				chan10to17data_reg <= (others=>'0');
 				count_cycles <= (others=>'0');
-			elsif (fill_zero_sig = '1') then
-				leds <= "00000000";
-				n2000 <= (others=>'1');
-				n1000 <= (others=>'1');
-				n500 <= (others=>'1');
-				n100 <= (others=>'1');
 			elsif (read5_do_sig = '1') then
 				if (data5_done = '1') then
 					data5_done_sig <= '1';
@@ -194,6 +194,12 @@ begin
 				else
 					data5_do <= '1';
 				end if;
+			elsif (fill_zero_sig = '1') then
+				leds <= "00000000";
+				n2000 <= (others=>'0');
+				n1000 <= (others=>'0');
+				n500 <= (others=>'0');
+				n100 <= (others=>'0');
 			elsif (read_do_sig = '1') then
 				data5_done_sig <= '0';
 				if (count_cycles < 2) then
@@ -212,77 +218,76 @@ begin
 					count_t <= count_t - 1;
 				end if;
 			elsif (denominate_do_sig = '1') then
+			--n2000d <= 1073741825;
+--			n1000d <= 2;
+			n500d <= 3;
+			n100d <= 4;
+--			denominate_done_sig <= '1';
 				case denominate_state is
 				when "00" =>
 					if(div_done_sig = '1') then
 						denominate_state <= "01";
+						denominate_done_sig <= '1';
+						n1000d <= to_integer(n2000);
 						n2000d <= to_integer(unsigned(q_sig(31 downto 0)));
 						if(n2000d > to_integer(n2000)) then
+							leds(7) <= '1';
+							leds(6) <= '0';
 							n2000d <= to_integer(n2000);
 						end if;
 					else
-						start_sig <= '1';
+						leds(6) <= '1';
+						leds(7) <= '0';
+						if (count_cycles < 5) then
+							start_sig <= '1';
+							count_cycles <= count_cycles + 1;
+						else
+							start_sig <= '0';
+						end if;
 						a_sig <= data_in (31 downto 0);
 						b_sig <= std_logic_vector(to_unsigned(2000,32));
 					end if;
-				when "01" =>
-					if(div_done_sig = '1') then
-						denominate_state <= "10";
-						n1000d <= to_integer(unsigned(q_sig(31 downto 0)));
-						if(n1000d > to_integer(n1000)) then
-							n1000d <= to_integer(n1000);
-						end if;
-					else
-						start_sig <= '1';
-						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-n2000d*2000),32));
-						b_sig <= std_logic_vector(to_unsigned(1000,32));
-					end if;
-				when "10" =>
-					if(div_done_sig = '1') then
-						denominate_state <= "11";
-						n500d <= to_integer(unsigned(q_sig(31 downto 0)));
-						if(n500d > to_integer(n500)) then
-							n500d <= to_integer(n500);
-						end if;
-					else
-						start_sig <= '1';
-						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000)),32));
-						b_sig <= std_logic_vector(to_unsigned(500,32));
-					end if;
-				when "11" =>
-					if(div_done_sig = '1') then
-						denominate_done_sig <= '1';
-						n100d <= to_integer(unsigned(q_sig(31 downto 0)));
-						if(n100d > to_integer(n100)) then
-							n100d <= to_integer(n100);
-						end if;
-					else
-						start_sig <= '1';
-						a_sig <= std_logic_vector(to_unsigned(to_integer(unsigned((data_in (31 downto 0)))-(n2000d*2000+n1000d*1000+n500d*500)),32));
-						b_sig <= std_logic_vector(to_unsigned(100,32));
-					end if;
+--				when "01" =>
+--					if(div_done_sig = '1') then
+--						denominate_state <= "10";
+--						n1000d <= to_integer(unsigned(q_sig(31 downto 0)));
+--						if(n1000d > to_integer(n1000)) then
+--							n1000d <= to_integer(n1000);
+--						end if;
+--					else
+--						start_sig <= '1';
+--						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-n2000d*2000),32));
+--						b_sig <= std_logic_vector(to_unsigned(1000,32));
+--					end if;
+--				when "10" =>
+--					if(div_done_sig = '1') then
+--						denominate_state <= "11";
+--						n500d <= to_integer(unsigned(q_sig(31 downto 0)));
+--						if(n500d > to_integer(n500)) then
+--							n500d <= to_integer(n500);
+--						end if;
+--					else
+--						start_sig <= '1';
+--						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000)),32));
+--						b_sig <= std_logic_vector(to_unsigned(500,32));
+--					end if;
+--				when "11" =>
+--					if(div_done_sig = '1') then
+--						denominate_done_sig <= '1';
+--						n100d <= to_integer(unsigned(q_sig(31 downto 0)));
+--						if(n100d > to_integer(n100)) then
+--							n100d <= to_integer(n100);
+--						end if;
+--					else
+--						start_sig <= '1';
+--						a_sig <= std_logic_vector(to_unsigned(to_integer(unsigned((data_in (31 downto 0)))-(n2000d*2000+n1000d*1000+n500d*500)),32));
+--						b_sig <= std_logic_vector(to_unsigned(100,32));
+--					end if;
 				when others =>
 					null;
 				end case;
---				n2000d <= to_integer(unsigned(data_in(31 downto 0))) mod 2000;
---				if(n2000d > to_integer(n2000)) then
---					n2000d <= to_integer(n2000);
---				end if;
---				n1000d <= (to_integer(unsigned(data_in(31downto 0))) - n2000d * 2000 ) mod 1000;
---				if(n1000d > to_integer(n1000)) then
---					n1000d <= to_integer(n1000);
---				end if;
---				n500d <= (to_integer(unsigned(data_in(31 downto 0))) - (n2000d * 2000 + n1000d * 1000) ) mod 500;
---				if(n500d > to_integer(n500)) then
---					n500d <= to_integer(n500);
---				end if;
---				n100d <= (to_integer(unsigned(data_in(31 downto 0))) - (n2000d * 2000 + n1000d * 1000 + n500d *500) ) mod 100;
---				if(n100d > to_integer(n100)) then
---					n100d <= to_integer(n100);
---				end if;
---				denominate_done_sig <= '1';
 			elsif (encrypt_do_sig = '1' or comm_do_sig = '1' or decrypt_do_sig = '1') then
-				leds(7 downto 2) <= "000000";
+				leds(5 downto 2) <= "0000";
 				if (timer_out = '1' and to_integer(count_t) = 0) then
 					leds(0) <= '1';
 					leds(1) <= '1';
@@ -309,7 +314,8 @@ begin
 					chan10to17data_reg <= chan10to17data;
 					case chan9data_reg is
 						when x"00" =>
-							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
+--							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
+							if (n2000d*2000+n1000d*1000+n500d*500+n100d*100=to_integer(to_unsigned(750,32))) then
 								chan0data <= x"02";
 								cash_available <= '0';
 							else
