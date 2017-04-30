@@ -21,14 +21,6 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.std_logic_unsigned.ALL;
 use IEEE.numeric_std.ALL;
--- Uncomment the following library declaration if using
--- arithmetic functions with Signed or Unsigned values
---use IEEE.NUMERIC_STD.ALL;
-
--- Uncomment the following library declaration if instantiating
--- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
 
 entity atmController is
 		generic (num_bits : integer := 8);
@@ -105,7 +97,7 @@ signal n1000d : integer := 0;
 signal n500d : integer := 0;
 signal n100d : integer := 0;
 signal start_sig : std_logic := '0';
-signal denominate_state : unsigned(1 downto 0) := (others => '0');
+signal denominate_state : unsigned(2 downto 0) := (others => '0');
 signal a_sig : std_logic_vector (31 downto 0) := (others => '0');
 signal b_sig : std_logic_vector (31 downto 0) := (others => '0');
 signal q_sig : std_logic_vector (31 downto 0) := (others => '0');
@@ -162,7 +154,7 @@ begin
 				count_t <= (others=>'0');
 				count_tt <= (others=>'0');
 				denominate_done_sig <= '0';
-				denominate_state <= "00";
+				denominate_state <= "000";
 				count_ttt <= (others=>'0');
 				comm_done_sig <= '0';
 				chan0data <= x"00";
@@ -175,7 +167,7 @@ begin
 				done_sig <= '0';
 				data5_done_sig <= '0';
 				start_sig <= '0';
-				denominate_state <= "00";
+				denominate_state <= "000";
 				denominate_done_sig <= '0';
 				ccount_t <= (others=>'0');
 				count_t <= (others=>'0');
@@ -218,27 +210,17 @@ begin
 					count_t <= count_t - 1;
 				end if;
 			elsif (denominate_do_sig = '1') then
-			--n2000d <= 1073741825;
---			n1000d <= 2;
-			n500d <= 3;
-			n100d <= 4;
---			denominate_done_sig <= '1';
 				case denominate_state is
-				when "00" =>
+				when "000" =>
 					if(div_done_sig = '1') then
-						denominate_state <= "01";
-						denominate_done_sig <= '1';
-						n1000d <= to_integer(n2000);
-						n2000d <= to_integer(unsigned(q_sig(31 downto 0)));
-						if(n2000d > to_integer(n2000)) then
-							leds(7) <= '1';
-							leds(6) <= '0';
+						denominate_state <= "001";
+						if(to_integer(unsigned(q_sig(31 downto 0))) > to_integer(n2000)) then
 							n2000d <= to_integer(n2000);
+						else
+							n2000d <= to_integer(unsigned(q_sig(31 downto 0)));
 						end if;
 					else
-						leds(6) <= '1';
-						leds(7) <= '0';
-						if (count_cycles < 5) then
+						if (count_cycles < 4) then
 							start_sig <= '1';
 							count_cycles <= count_cycles + 1;
 						else
@@ -247,42 +229,62 @@ begin
 						a_sig <= data_in (31 downto 0);
 						b_sig <= std_logic_vector(to_unsigned(2000,32));
 					end if;
---				when "01" =>
---					if(div_done_sig = '1') then
---						denominate_state <= "10";
---						n1000d <= to_integer(unsigned(q_sig(31 downto 0)));
---						if(n1000d > to_integer(n1000)) then
---							n1000d <= to_integer(n1000);
---						end if;
---					else
---						start_sig <= '1';
---						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-n2000d*2000),32));
---						b_sig <= std_logic_vector(to_unsigned(1000,32));
---					end if;
---				when "10" =>
---					if(div_done_sig = '1') then
---						denominate_state <= "11";
---						n500d <= to_integer(unsigned(q_sig(31 downto 0)));
---						if(n500d > to_integer(n500)) then
---							n500d <= to_integer(n500);
---						end if;
---					else
---						start_sig <= '1';
---						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000)),32));
---						b_sig <= std_logic_vector(to_unsigned(500,32));
---					end if;
---				when "11" =>
---					if(div_done_sig = '1') then
---						denominate_done_sig <= '1';
---						n100d <= to_integer(unsigned(q_sig(31 downto 0)));
---						if(n100d > to_integer(n100)) then
---							n100d <= to_integer(n100);
---						end if;
---					else
---						start_sig <= '1';
---						a_sig <= std_logic_vector(to_unsigned(to_integer(unsigned((data_in (31 downto 0)))-(n2000d*2000+n1000d*1000+n500d*500)),32));
---						b_sig <= std_logic_vector(to_unsigned(100,32));
---					end if;
+				when "001" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "010";
+						if(to_integer(unsigned(q_sig(31 downto 0))) > to_integer(n1000)) then
+							n1000d <= to_integer(n1000);
+						else
+							n1000d <= to_integer(unsigned(q_sig(31 downto 0)));
+						end if;
+					else
+						if (count_cycles < 6) then
+							start_sig <= '1';
+							count_cycles <= count_cycles + 1;
+						else
+							start_sig <= '0';
+						end if;
+						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-n2000d*2000),32));
+						b_sig <= std_logic_vector(to_unsigned(1000,32));
+					end if;
+				when "010" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "011";
+						if(to_integer(unsigned(q_sig(31 downto 0))) > to_integer(n500)) then
+							n500d <= to_integer(n500);
+						else
+							n500d <= to_integer(unsigned(q_sig(31 downto 0)));
+						end if;
+					else
+						if (count_cycles < 8) then
+							start_sig <= '1';
+							count_cycles <= count_cycles + 1;
+						else
+							start_sig <= '0';
+						end if;
+						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000)),32));
+						b_sig <= std_logic_vector(to_unsigned(500,32));
+					end if;
+				when "011" =>
+					if(div_done_sig = '1') then
+						denominate_state <= "100";
+						if(to_integer(unsigned(q_sig(31 downto 0))) > to_integer(n100)) then
+							n100d <= to_integer(n100);
+						else
+							n100d <= to_integer(unsigned(q_sig(31 downto 0)));
+						end if;
+					else
+						if (count_cycles < 10) then
+							start_sig <= '1';
+							count_cycles <= count_cycles + 1;
+						else
+							start_sig <= '0';
+						end if;
+						a_sig <= std_logic_vector(to_unsigned((to_integer(unsigned(data_in (31 downto 0)))-(n2000d*2000+n1000d*1000+n500d*500)),32));
+						b_sig <= std_logic_vector(to_unsigned(100,32));
+					end if;
+				when "100" =>
+					denominate_done_sig <= '1';
 				when others =>
 					null;
 				end case;
@@ -303,7 +305,7 @@ begin
 					data_out(23 downto 16) <= std_logic_vector (to_unsigned(n1000d,8));
 					data_out(15 downto 8) <= std_logic_vector (to_unsigned(n500d,8));
 					data_out(7 downto 0) <= std_logic_vector (to_unsigned(n100d,8));
-					if (count_cycles < 10) then
+					if (count_cycles < 15) then
 						encrypt_do <= '1';
 						count_cycles <= count_cycles + 1;
 					else
@@ -314,8 +316,7 @@ begin
 					chan10to17data_reg <= chan10to17data;
 					case chan9data_reg is
 						when x"00" =>
---							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
-							if (n2000d*2000+n1000d*1000+n500d*500+n100d*100=to_integer(to_unsigned(750,32))) then
+							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
 								chan0data <= x"02";
 								cash_available <= '0';
 							else
@@ -329,7 +330,7 @@ begin
 					end case;
 				elsif (decrypt_do_sig = '1') then
 					data_out <= chan10to17data_reg;
-					if (count_cycles < 15) then
+					if (count_cycles < 20) then
 						decrypt_do <= '1';
 						count_cycles <= count_cycles + 1;
 					else
