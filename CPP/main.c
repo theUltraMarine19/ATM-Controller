@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <errno.h>
+#include <errno.h> 
 #include <makestuff.h>
 #include <libfpgalink.h>
 #include <libbuffer.h>
@@ -54,7 +54,7 @@ void decrypt (uint32_t* v, uint32_t* k) {
 
 uint32_t bankId;
 
-uint8 updateCSV(uint32_t id,uint16_t pin,long int cash_req,uint8 temp, uint32_t n1000){
+uint8 updateCSV(uint32_t id,uint16_t pin,long int cash_req,uint8 temp){
     uint32_t bID = id & 31;
     if(bID != bankId){
         return 0x05;
@@ -89,7 +89,7 @@ uint8 updateCSV(uint32_t id,uint16_t pin,long int cash_req,uint8 temp, uint32_t 
                 else{
                     t=strtok(NULL,",");
                     printf("%s,",t);// now t contains user's balance
-                    if(atol(t)<cash_req || n1000>0){
+                    if(atol(t)<cash_req){
                         return 0x02;// 0x02 ==> insufficient user balance
                     }
                     else{
@@ -173,8 +173,7 @@ int main(void){
 
     printf("Enter Bank ID...\n");
 
-    scanf("%d",&bankID);
-    bankID = bankID; //Assuming input is a 5 bit integer
+    scanf("%d",&bankId);
 
     printf("Executing flOpen\n");
     //establishing laptop and board interface
@@ -292,7 +291,7 @@ int main(void){
                     long int cash_req=n2000*2000+n1000*1000+n500*500+n100*100;
                     printf("here28\n");                
                         //check whether valid user, if so check for sufficient balance
-                    uint8 response = updateCSV(id,pin,cash_req,temp,n1000);
+                    uint8 response = updateCSV(id,pin,cash_req,temp);
                     
                     // //response returned is written to channel 9
                     // fStatus=flWriteChannel(handle,9,(uint32)1,&response,&error);

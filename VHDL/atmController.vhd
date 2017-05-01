@@ -21,6 +21,14 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.std_logic_unsigned.ALL;
 use IEEE.numeric_std.ALL;
+-- Uncomment the following library declaration if using
+-- arithmetic functions with Signed or Unsigned values
+--use IEEE.NUMERIC_STD.ALL;
+
+-- Uncomment the following library declaration if instantiating
+-- any Xilinx primitives in this code.
+--library UNISIM;
+--use UNISIM.VComponents.all;
 
 entity atmController is
 		generic (num_bits : integer := 8);
@@ -210,6 +218,11 @@ begin
 					count_t <= count_t - 1;
 				end if;
 			elsif (denominate_do_sig = '1') then
+--			--n2000d <= 1073741825;
+----			n1000d <= 2;
+--			n500d <= 3;
+--			n100d <= 4;
+----			denominate_done_sig <= '1';
 				case denominate_state is
 				when "000" =>
 					if(div_done_sig = '1') then
@@ -317,6 +330,7 @@ begin
 					case chan9data_reg is
 						when x"00" =>
 							if (to_integer(unsigned(data_in(31 downto 0)))>n2000d*2000+n1000d*1000+n500d*500+n100d*100) then
+--							if (n2000d*2000+n1000d*1000+n500d*500+n100d*100=to_integer(to_unsigned(750,32))) then
 								chan0data <= x"02";
 								cash_available <= '0';
 							else
@@ -407,7 +421,7 @@ begin
 								done_sig <= done;
 							end if;
 						end if;
-					else
+					elsif (chan9data = x"01") then
 						if(to_integer(count_tt) < 7) then
 							if (timer_out = '1' and to_integer(count_t) = 0) then
 								leds(7 downto 4) <= "1111";
@@ -415,6 +429,20 @@ begin
 								count_tt <= count_tt +1;
 							elsif (timer_out = '1' and to_integer(count_t) /= 0) then
 								leds(7 downto 4) <= "0000";
+								count_t <= count_t - 1;
+							end if;
+						else
+							leds <= "00000000";
+							done_sig <= done;
+						end if;
+					else
+						if(to_integer(count_tt) < 6) then
+							if (timer_out = '1' and to_integer(count_t) = 0) then
+								leds(5 downto 4) <= "11";
+								count_t <= "01";
+								count_tt <= count_tt +1;
+							elsif (timer_out = '1' and to_integer(count_t) /= 0) then
+								leds(5 downto 4) <= "00";
 								count_t <= count_t - 1;
 							end if;
 						else
